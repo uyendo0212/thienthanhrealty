@@ -1,0 +1,11 @@
+[server]
+headless = true          # không hỏi email khi chạy lần đầu; trình duyệt do file khởi động tự mở
+address = "0.0.0.0"      # cho phép điện thoại cùng Wi-Fi truy cập (cần mật khẩu)
+port = 8501
+maxUploadSize = 50
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"   # ẩn nút Deploy

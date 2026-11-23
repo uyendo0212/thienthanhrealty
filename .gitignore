@@ -4,3 +4,7 @@ du_lieu/
 config.json
 __pycache__/
 .venv/
+
+# API key ghi nhớ trên máy
+api_key.txt
+.venv_ok

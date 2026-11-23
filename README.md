@@ -30,14 +30,32 @@ dữ liệu được ghi vào Excel. **Khách Việt Nam** và **khách nước 
    giải mã và kiểm tra số kiểm tra (check digit) để xác nhận **quốc tịch**, số hộ chiếu, ngày sinh.
    Có thể tải cùng lúc trang hộ chiếu và trang thị thực của 1 người.
 
-## Cài đặt (Windows)
-1. Cài Python 3.10+ tại https://www.python.org/downloads/ (tích chọn **Add Python to PATH**).
-2. Nhấp đúp **`chay_phan_mem.bat`**. Lần đầu sẽ tự cài thư viện (vài phút). Trình duyệt mở ở http://localhost:8501.
+## Cài đặt và chạy
 
-macOS / Linux: chạy `./chay_phan_mem.sh`.
+### MacBook (khuyên dùng)
+1. Cài Python **3.12 hoặc 3.13** tại https://www.python.org/downloads/macos/ (bản *macOS 64-bit universal2 installer*).
+2. Giải nén thư mục phần mềm, **nhấp đúp `Chay phan mem (Mac).command`**.
+   - Nếu macOS báo *"không thể mở vì từ nhà phát triển không xác định"*: **chuột phải (hoặc Control + bấm) → Mở → Mở**. Chỉ cần làm 1 lần.
+   - Nếu máy hỏi *"cho phép Python nhận kết nối mạng?"*: chọn **Cho phép** (để điện thoại kết nối được).
+3. Lần đầu tự cài thư viện (vài phút), sau đó trình duyệt tự mở phần mềm. **Giữ cửa sổ Terminal mở** khi đang dùng.
 
-Nếu muốn dùng AI, đặt biến môi trường `ANTHROPIC_API_KEY`, hoặc dán key vào ô trong phần Cài đặt
-(key nhập trong ô chỉ dùng cho lần chạy đó, không được lưu vào file).
+### Windows
+1. Cài Python 3.12 hoặc 3.13 tại https://www.python.org/downloads/ (tích chọn **Add Python to PATH**).
+2. Nhấp đúp **`chay_phan_mem.bat`**.
+
+## Dùng trên điện thoại 📱
+Phần mềm chạy trên máy tính, điện thoại chỉ cần trình duyệt — **không phải cài gì**.
+1. Trên máy tính, ở cột bên trái mục **📱 Dùng trên điện thoại**: đặt **mật khẩu** (để khách dùng chung Wi-Fi không xem được dữ liệu).
+2. Điện thoại kết nối **cùng Wi-Fi** với máy tính, mở Camera quét **mã QR** hiện trên máy tính (hoặc gõ địa chỉ `http://...:8501`).
+3. Đăng nhập bằng mật khẩu. Mẹo: trên iPhone bấm **Chia sẻ → Thêm vào MH chính** để có biểu tượng như ứng dụng.
+4. Chụp giấy tờ: bấm **Upload → Chụp ảnh**.
+
+Lưu ý: máy tính phải **đang bật, không ngủ, và đang chạy phần mềm** (khi chạy, phần mềm tự giữ cho Mac không ngủ;
+gập màn hình MacBook thì máy vẫn ngủ). File Excel lưu trên máy tính.
+
+## Cài API key (để AI đọc bằng lái, hộ chiếu, thị thực)
+Tạo key tại https://console.anthropic.com → API Keys. Dán vào ô **ANTHROPIC_API_KEY** ở cột bên trái
+(trên máy tính), giữ dấu tích **Ghi nhớ key trên máy này** để lần sau không phải nhập lại.
 
 ## File Excel
 - Mặc định: `du_lieu/khach_viet_nam.xlsx` và `du_lieu/khach_nuoc_ngoai.xlsx` (tự tạo).

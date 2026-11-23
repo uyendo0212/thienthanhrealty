@@ -8,8 +8,13 @@ Chạy:  streamlit run app.py
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
 import os
+import platform
+import secrets
+import socket
 from datetime import date
 
 import pandas as pd
@@ -28,6 +33,12 @@ DEFAULT_CONFIG = {
     "use_ai": True,
 }
 TEN_NHOM = {"vn": "khách Việt Nam", "nn": "khách nước ngoài"}
+KEY_FILE = os.path.join(BASE, "api_key.txt")  # API key ghi nhớ trên máy này (không đưa lên Git)
+IS_MAC = platform.system() == "Darwin"
+
+if not os.environ.get("ANTHROPIC_API_KEY") and os.path.exists(KEY_FILE):
+    with open(KEY_FILE, encoding="utf-8") as _f:
+        os.environ["ANTHROPIC_API_KEY"] = _f.read().strip()
 
 
 def load_config() -> dict:
@@ -52,32 +63,130 @@ def save_config(cfg: dict) -> None:
 st.set_page_config(page_title="Quản lý lưu trú", page_icon="🏠", layout="wide")
 cfg = load_config()
 
+# Truy cập ngay trên máy chạy phần mềm (Mac) -> ip None; từ điện thoại -> có ip
+IS_LOCAL = st.context.ip_address is None
+
+
+def _hash(pw: str, salt: str) -> str:
+    return hashlib.pbkdf2_hmac("sha256", pw.encode(), bytes.fromhex(salt), 200_000).hex()
+
+
+def lan_url() -> str | None:
+    """Địa chỉ để mở phần mềm từ điện thoại (cùng mạng Wi-Fi)."""
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("10.255.255.255", 1))  # không gửi dữ liệu, chỉ để biết IP trong mạng nội bộ
+        ip = s.getsockname()[0]
+        s.close()
+    except OSError:
+        return None
+    if ip.startswith("127."):
+        return None
+    return f"http://{ip}:{st.get_option('server.port')}"
+
+
+def qr_png(text: str) -> bytes:
+    import qrcode
+
+    buf = io.BytesIO()
+    qrcode.make(text, box_size=6, border=2).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+# ----------------------------------------------------------------- Đăng nhập (điện thoại)
+if not IS_LOCAL and not st.session_state.get("dang_nhap"):
+    st.title("🏠 Quản lý lưu trú")
+    if not cfg.get("pw_hash"):
+        st.error("Chưa đặt mật khẩu. Hãy đặt mật khẩu trong phần **Cài đặt** trên máy tính đang chạy phần mềm, "
+                 "sau đó mới dùng được trên điện thoại.")
+        st.stop()
+    with st.form("login"):
+        pw = st.text_input("Mật khẩu", type="password")
+        if st.form_submit_button("Đăng nhập", type="primary"):
+            if secrets.compare_digest(_hash(pw, cfg["pw_salt"]), cfg["pw_hash"]):
+                st.session_state.dang_nhap = True
+                st.rerun()
+            st.error("Sai mật khẩu.")
+    st.stop()
+
 # ----------------------------------------------------------------- Sidebar
+excel_vn, sheet_vn = cfg["excel_vn"], cfg["sheet_vn"]
+excel_nn, sheet_nn = cfg["excel_nn"], cfg["sheet_nn"]
+use_ai = cfg["use_ai"]
 with st.sidebar:
-    st.header("⚙️ Cài đặt")
-    st.markdown("**🇻🇳 Khách Việt Nam**")
-    excel_vn = st.text_input("File Excel", cfg["excel_vn"], key="excel_vn",
-                             help="Ví dụ: D:\\LuuTru\\khach_viet_nam.xlsx. Chưa có thì tự tạo. "
-                                  "Nếu là file mẫu có sẵn, phần mềm tự nhận diện cột theo tiêu đề.")
-    sheet_vn = st.text_input("Tên sheet", cfg["sheet_vn"], key="sheet_vn")
-    st.markdown("**🌏 Khách nước ngoài**")
-    excel_nn = st.text_input("File Excel", cfg["excel_nn"], key="excel_nn")
-    sheet_nn = st.text_input("Tên sheet", cfg["sheet_nn"], key="sheet_nn")
-    st.caption("Muốn dùng **chung 1 file, 2 tab**: nhập cùng một đường dẫn file, khác tên sheet.")
-    if os.path.abspath(excel_vn) == os.path.abspath(excel_nn) and sheet_vn == sheet_nn:
-        st.error("Hai nhóm khách đang trùng cả file lẫn sheet — hãy đặt tên sheet khác nhau.")
-    st.divider()
-    use_ai = st.checkbox("Dùng AI đọc giấy tờ (bằng lái, hộ chiếu, thị thực, CCCD không quét được QR)",
-                         cfg["use_ai"])
-    if use_ai and not L.ai_available():
-        key = st.text_input("ANTHROPIC_API_KEY", type="password",
-                            help="Cần để đọc bằng lái xe, hộ chiếu, thị thực. CCCD có mã QR thì không cần.")
-        if key:
-            os.environ["ANTHROPIC_API_KEY"] = key.strip()
-    if st.button("💾 Lưu cài đặt"):
-        cfg.update(excel_vn=excel_vn, sheet_vn=sheet_vn, excel_nn=excel_nn, sheet_nn=sheet_nn, use_ai=use_ai)
-        save_config(cfg)
-        st.success("Đã lưu cài đặt")
+    if not IS_LOCAL:
+        st.header("⚙️ Cài đặt")
+        st.caption("Cài đặt chỉ thay đổi được trên máy tính chạy phần mềm.")
+        st.write(f"🇻🇳 `{os.path.basename(excel_vn)}` / {sheet_vn}")
+        st.write(f"🌏 `{os.path.basename(excel_nn)}` / {sheet_nn}")
+        st.write("AI: " + ("bật" if use_ai and L.ai_available() else "tắt"))
+        if st.button("Đăng xuất"):
+            st.session_state.clear()
+            st.rerun()
+    else:
+        # --- Dùng trên điện thoại
+        st.header("📱 Dùng trên điện thoại")
+        url = lan_url()
+        if not cfg.get("pw_hash"):
+            st.warning("Đặt mật khẩu trước để dùng trên điện thoại (ngăn người khác cùng Wi-Fi xem dữ liệu khách).")
+        elif url:
+            st.image(qr_png(url), width=170)
+            st.caption(f"Điện thoại **cùng Wi-Fi** với máy này: mở Camera quét mã, hoặc vào **{url}**")
+        else:
+            st.caption("Máy chưa kết nối Wi-Fi/mạng nội bộ.")
+        with st.expander("🔒 Đặt / đổi mật khẩu" if cfg.get("pw_hash") else "🔒 Đặt mật khẩu", 
+                         expanded=not cfg.get("pw_hash")):
+            p1 = st.text_input("Mật khẩu mới", type="password", key="pw1")
+            p2 = st.text_input("Nhập lại", type="password", key="pw2")
+            if st.button("Lưu mật khẩu"):
+                if len(p1) < 4:
+                    st.error("Mật khẩu cần ít nhất 4 ký tự.")
+                elif p1 != p2:
+                    st.error("Hai lần nhập không khớp.")
+                else:
+                    salt = secrets.token_hex(16)
+                    cfg.update(pw_salt=salt, pw_hash=_hash(p1, salt))
+                    save_config(cfg)
+                    st.success("Đã lưu mật khẩu.")
+                    st.rerun()
+        st.divider()
+
+        st.header("⚙️ Cài đặt")
+        vd = "/Users/ten-ban/Documents/LuuTru/" if IS_MAC else "D:\\LuuTru\\"
+        st.markdown("**🇻🇳 Khách Việt Nam**")
+        excel_vn = st.text_input("File Excel", cfg["excel_vn"], key="excel_vn",
+                                 help=f"Ví dụ: {vd}khach_viet_nam.xlsx. Chưa có thì tự tạo. "
+                                      "Nếu là file mẫu có sẵn, phần mềm tự nhận diện cột theo tiêu đề.")
+        sheet_vn = st.text_input("Tên sheet", cfg["sheet_vn"], key="sheet_vn")
+        st.markdown("**🌏 Khách nước ngoài**")
+        excel_nn = st.text_input("File Excel", cfg["excel_nn"], key="excel_nn")
+        sheet_nn = st.text_input("Tên sheet", cfg["sheet_nn"], key="sheet_nn")
+        st.caption("Muốn dùng **chung 1 file, 2 tab**: nhập cùng một đường dẫn file, khác tên sheet.")
+        if os.path.abspath(excel_vn) == os.path.abspath(excel_nn) and sheet_vn == sheet_nn:
+            st.error("Hai nhóm khách đang trùng cả file lẫn sheet — hãy đặt tên sheet khác nhau.")
+        st.divider()
+        use_ai = st.checkbox("Dùng AI đọc giấy tờ (bằng lái, hộ chiếu, thị thực, CCCD không quét được QR)",
+                             cfg["use_ai"])
+        if use_ai and not L.ai_available():
+            key = st.text_input("ANTHROPIC_API_KEY", type="password",
+                                help="Cần để đọc bằng lái xe, hộ chiếu, thị thực. CCCD có mã QR thì không cần.")
+            nho = st.checkbox("Ghi nhớ key trên máy này", value=True)
+            if key:
+                os.environ["ANTHROPIC_API_KEY"] = key.strip()
+                if nho:
+                    with open(KEY_FILE, "w", encoding="utf-8") as f:
+                        f.write(key.strip())
+                    try:
+                        os.chmod(KEY_FILE, 0o600)
+                    except OSError:
+                        pass
+                st.rerun()
+        elif use_ai:
+            st.caption("✅ Đã có API key.")
+        if st.button("💾 Lưu cài đặt"):
+            cfg.update(excel_vn=excel_vn, sheet_vn=sheet_vn, excel_nn=excel_nn, sheet_nn=sheet_nn, use_ai=use_ai)
+            save_config(cfg)
+            st.success("Đã lưu cài đặt")
     st.caption("Mẹo: với CCCD, chụp **mặt có mã QR** rõ nét — đọc ngay, không cần Internet. "
                "Với hộ chiếu, chụp rõ **trang thông tin có 2 dòng mã MRZ** ở dưới cùng.")
 
@@ -163,7 +272,11 @@ with tab1:
                     L.LOAI_HC: "Ảnh trang thông tin hộ chiếu và/hoặc trang thị thực (có thể tải nhiều ảnh)"}[loai]
             files = st.file_uploader(nhan, type=["jpg", "jpeg", "png", "webp"], accept_multiple_files=True,
                                      key=f"single_upload_{loai}")
-            cam = st.camera_input("Hoặc chụp trực tiếp bằng camera", key="cam") if st.toggle("Dùng camera") else None
+            if IS_LOCAL:
+                cam = st.camera_input("Hoặc chụp bằng webcam", key="cam") if st.toggle("Dùng webcam") else None
+            else:
+                cam = None
+                st.caption("📱 Bấm **Upload** → **Chụp ảnh** (Take Photo) để chụp trực tiếp bằng điện thoại.")
             imgs = [f.getvalue() for f in (files or [])] + ([cam.getvalue()] if cam else [])
             for b in imgs:
                 st.image(b, width="stretch")
