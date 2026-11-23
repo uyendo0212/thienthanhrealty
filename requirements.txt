@@ -1,0 +1,9 @@
+streamlit>=1.40
+openpyxl>=3.1
+pandas>=2.0
+pillow>=10.0
+numpy>=1.26
+zxing-cpp>=2.2
+opencv-python-headless>=4.8
+anthropic>=2.12
+pydantic>=2.0

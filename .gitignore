@@ -1,0 +1,6 @@
+# Dữ liệu khách (thông tin cá nhân) — không đưa lên GitHub
+du_lieu/
+*.xlsx
+config.json
+__pycache__/
+.venv/
