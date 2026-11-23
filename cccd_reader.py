@@ -30,6 +30,27 @@ except ImportError:  # pragma: no cover
     cv2 = None
 
 
+# Loại khách / giấy tờ và các trường bắt buộc tương ứng
+LOAI_CCCD = "CCCD"
+LOAI_BLX = "Bằng lái xe"
+LOAI_TRE_EM = "Trẻ em"
+LOAI_LIST = [LOAI_CCCD, LOAI_BLX, LOAI_TRE_EM]
+
+TEN_TRUONG = {"ho_ten": "Họ tên", "ngay_sinh": "Ngày sinh", "so_cccd": "Số CCCD",
+              "dia_chi": "Địa chỉ", "ngay_den": "Ngày lưu trú"}
+BAT_BUOC = {
+    LOAI_CCCD: ["ho_ten", "ngay_sinh", "so_cccd", "dia_chi", "ngay_den"],
+    LOAI_BLX: ["ho_ten", "ngay_sinh", "dia_chi", "ngay_den"],
+    LOAI_TRE_EM: ["ho_ten", "ngay_sinh", "ngay_den"],
+}
+
+
+def thieu_truong(loai: str, rec: dict) -> list[str]:
+    """Trả về tên các trường bắt buộc còn trống theo loại khách."""
+    return [TEN_TRUONG[k] for k in BAT_BUOC.get(loai, BAT_BUOC[LOAI_CCCD])
+            if rec.get(k) in (None, "") or (isinstance(rec.get(k), str) and not rec[k].strip())]
+
+
 @dataclass
 class GuestInfo:
     ho_ten: str = ""
@@ -37,12 +58,13 @@ class GuestInfo:
     gioi_tinh: str = ""
     so_cccd: str = ""
     dia_chi: str = ""
+    loai: str = ""  # LOAI_CCCD / LOAI_BLX (do phần mềm nhận diện)
     nguon: str = ""  # "QR" hoặc "AI"
     canh_bao: list[str] = field(default_factory=list)
 
     def merge(self, other: "GuestInfo") -> "GuestInfo":
         """Điền các trường còn trống bằng dữ liệu từ `other`."""
-        for f in ("ho_ten", "ngay_sinh", "gioi_tinh", "so_cccd", "dia_chi"):
+        for f in ("ho_ten", "ngay_sinh", "gioi_tinh", "so_cccd", "dia_chi", "loai"):
             if not getattr(self, f) and getattr(other, f):
                 setattr(self, f, getattr(other, f))
         if other.nguon and other.nguon not in self.nguon:
@@ -84,6 +106,7 @@ def parse_qr_text(text: str) -> GuestInfo | None:
         ngay_sinh=_fmt_date(parts[3]),
         gioi_tinh=parts[4],
         dia_chi=parts[5],
+        loai=LOAI_CCCD,
         nguon="QR",
     )
 
@@ -132,20 +155,25 @@ def read_qr(img: Image.Image) -> GuestInfo | None:
 # --------------------------------------------------------------------------- #
 MODEL = os.environ.get("CCCD_MODEL", "claude-opus-5-5")
 
-_PROMPT = """Đây là ảnh chụp căn cước công dân / thẻ căn cước Việt Nam (có thể là mặt trước, mặt sau, hoặc cả hai).
-Hãy đọc chính xác các thông tin sau, giữ nguyên dấu tiếng Việt:
-- ho_ten: Họ và tên (viết như trên thẻ)
+_PROMPT = """Đây là ảnh chụp giấy tờ tùy thân Việt Nam: căn cước công dân / thẻ căn cước, HOẶC giấy phép lái xe (bằng lái xe).
+Ảnh có thể là mặt trước, mặt sau, hoặc cả hai. Hãy đọc chính xác, giữ nguyên dấu tiếng Việt:
+- loai_giay_to: "CCCD" nếu là căn cước / căn cước công dân; "Bằng lái xe" nếu là giấy phép lái xe; "Khác" nếu không phải hai loại trên.
+- ho_ten: Họ và tên (viết như trên giấy tờ)
 - ngay_sinh: Ngày sinh, định dạng dd/mm/yyyy
-- gioi_tinh: Giới tính (Nam/Nữ)
-- so_cccd: Số định danh / số CCCD (12 chữ số)
-- dia_chi: "Nơi thường trú" (thẻ CCCD cũ) hoặc "Nơi cư trú" (thẻ căn cước mới). KHÔNG dùng "Quê quán" / "Nơi đăng ký khai sinh".
+- gioi_tinh: Giới tính (Nam/Nữ), để trống nếu giấy tờ không ghi
+- so_cccd: CHỈ với CCCD: số định danh / số CCCD (12 chữ số). Với bằng lái xe để trống (không lấy số giấy phép lái xe).
+- dia_chi: CCCD cũ: "Nơi thường trú"; thẻ căn cước mới: "Nơi cư trú"; bằng lái xe: "Nơi cư trú" / "Address".
+  KHÔNG dùng "Quê quán" / "Nơi đăng ký khai sinh".
 Trường nào không có trong ảnh hoặc không đọc được thì để chuỗi rỗng. Không đoán."""
 
 
 def _get_schema():
+    from typing import Literal
+
     from pydantic import BaseModel
 
     class CCCDFields(BaseModel):
+        loai_giay_to: Literal["CCCD", "Bằng lái xe", "Khác"]
         ho_ten: str
         ngay_sinh: str
         gioi_tinh: str
@@ -196,8 +224,13 @@ def read_with_ai(images: list[Image.Image]) -> GuestInfo:
         gioi_tinh=d.gioi_tinh.strip(),
         so_cccd=re.sub(r"\D", "", d.so_cccd),
         dia_chi=d.dia_chi.strip(),
+        loai={"CCCD": LOAI_CCCD, "Bằng lái xe": LOAI_BLX}.get(d.loai_giay_to, ""),
         nguon="AI",
     )
+    if info.loai == LOAI_BLX:
+        info.so_cccd = ""
+    if d.loai_giay_to == "Khác":
+        info.canh_bao.append("Ảnh có vẻ không phải CCCD hoặc bằng lái xe — hãy kiểm tra lại.")
     if info.so_cccd and len(info.so_cccd) != 12:
         info.canh_bao.append(f"Số CCCD đọc được có {len(info.so_cccd)} chữ số (thường là 12) — hãy kiểm tra lại.")
     return info
@@ -206,18 +239,24 @@ def read_with_ai(images: list[Image.Image]) -> GuestInfo:
 # --------------------------------------------------------------------------- #
 # Hàm chính
 # --------------------------------------------------------------------------- #
-def extract(images_bytes: list[bytes], use_ai: bool = True) -> GuestInfo:
-    """Nhận 1 hoặc nhiều ảnh (mặt trước / mặt sau) của cùng một thẻ."""
+def extract(images_bytes: list[bytes], use_ai: bool = True, loai: str = "") -> GuestInfo:
+    """Nhận 1 hoặc nhiều ảnh (mặt trước / mặt sau) của cùng một giấy tờ.
+
+    `loai` là loại giấy tờ người dùng đã chọn (để trống = tự nhận diện).
+    Với bằng lái xe, bỏ qua bước quét QR (QR trên bằng lái không chứa thông tin cá nhân).
+    """
     images = [load_image(b) for b in images_bytes]
 
     result = GuestInfo()
-    for im in images:
-        qr = read_qr(im)
-        if qr:
-            result.merge(qr)
-            break
+    if loai != LOAI_BLX:
+        for im in images:
+            qr = read_qr(im)
+            if qr:
+                result.merge(qr)
+                break
 
-    missing = not all([result.ho_ten, result.ngay_sinh, result.so_cccd, result.dia_chi])
+    can = BAT_BUOC[LOAI_BLX] if loai == LOAI_BLX else BAT_BUOC[LOAI_CCCD]
+    missing = any(not getattr(result, k) for k in can if k != "ngay_den")
     if missing:
         if use_ai and ai_available():
             try:
@@ -226,6 +265,12 @@ def extract(images_bytes: list[bytes], use_ai: bool = True) -> GuestInfo:
                 result.canh_bao.append(f"Lỗi khi gọi AI: {e}")
         elif not result.nguon:
             result.canh_bao.append(
+                "Không quét được mã QR. Bằng lái xe cần AI để đọc — hãy cài ANTHROPIC_API_KEY, hoặc nhập tay."
+                if loai == LOAI_BLX else
                 "Không quét được mã QR. Hãy chụp lại rõ mã QR, hoặc cài ANTHROPIC_API_KEY để AI đọc chữ trên thẻ."
             )
+    if loai == LOAI_BLX:
+        result.so_cccd = ""
+    if loai and result.loai and result.loai != loai:
+        result.canh_bao.append(f"Bạn chọn \"{loai}\" nhưng ảnh có vẻ là \"{result.loai}\".")
     return result

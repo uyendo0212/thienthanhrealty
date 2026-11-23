@@ -1,7 +1,18 @@
-# Phần mềm quản lý lưu trú — nhập khách từ ảnh CCCD
+# Phần mềm quản lý lưu trú — nhập khách từ ảnh CCCD / bằng lái xe
 
 Tải ảnh căn cước công dân lên → phần mềm tự đọc **Họ tên, Ngày sinh, Giới tính, Số CCCD, Địa chỉ**,
 bạn chọn **Ngày lưu trú** (mặc định hôm nay), kiểm tra lại rồi bấm **Lưu** → dữ liệu được ghi vào file Excel bạn chỉ định.
+
+## Loại khách và thông tin bắt buộc
+
+| Loại khách | Thông tin bắt buộc | Cách nhập |
+|---|---|---|
+| 🪪 CCCD | Họ tên, Ngày sinh, Số CCCD, Địa chỉ, Ngày lưu trú | Tải ảnh CCCD (quét mã QR, hoặc AI đọc) |
+| 🚗 Bằng lái xe | Họ tên, Ngày sinh, Địa chỉ, Ngày lưu trú | Tải ảnh bằng lái (AI đọc), hoặc nhập tay |
+| 🧒 Trẻ em | Họ tên, Ngày sinh, Ngày lưu trú | Nhập tay, không cần ảnh |
+
+Phần mềm không cho lưu khi còn thiếu thông tin bắt buộc. Cột **Loại giấy tờ** trong Excel ghi rõ khách thuộc loại nào.
+Trùng khách được kiểm tra theo số CCCD; với trẻ em và khách dùng bằng lái xe thì kiểm tra theo họ tên + ngày sinh + ngày đến.
 
 ## Cách đọc thẻ
 1. **Quét mã QR trên thẻ** (ưu tiên): miễn phí, không cần Internet, chính xác 100% khi quét được.
@@ -21,8 +32,8 @@ Nếu muốn dùng AI, đặt biến môi trường `ANTHROPIC_API_KEY`, hoặc 
 (key nhập trong ô chỉ dùng cho lần chạy đó, không được lưu vào file).
 
 ## Chức năng
-- **Nhập 1 khách**: tải ảnh mặt trước/mặt sau hoặc chụp bằng camera, sửa lại nếu cần, lưu vào Excel.
-- **Nhập nhiều khách**: tải nhiều ảnh cùng lúc (mỗi ảnh 1 người), sửa trong bảng, lưu tất cả.
+- **Nhập 1 khách**: chọn loại khách (CCCD / Bằng lái xe / Trẻ em), tải ảnh hoặc chụp bằng camera, sửa lại nếu cần, lưu vào Excel.
+- **Nhập nhiều khách**: tải nhiều ảnh cùng lúc (mỗi ảnh 1 người, tự nhận diện CCCD hay bằng lái), thêm dòng trẻ em bằng tay, sửa trong bảng, lưu tất cả.
 - **Danh sách**: xem, tìm kiếm khách đã nhập, tải file Excel.
 - Cảnh báo khi trùng khách (cùng số CCCD và cùng ngày đến).
 

@@ -22,6 +22,7 @@ COLUMNS: list[tuple[str, str, list[str]]] = [
     ("ngay_sinh", "Ngày sinh", ["ngay sinh", "ngay thang nam sinh", "nam sinh"]),
     ("gioi_tinh", "Giới tính", ["gioi tinh", "gioi"]),
     ("so_cccd", "Số CCCD", ["so cccd", "cccd", "can cuoc", "so dinh danh", "cmnd", "so giay to", "giay to"]),
+    ("loai_giay_to", "Loại giấy tờ", ["loai giay to", "loai khach", "giay to tuy than"]),
     ("dia_chi", "Địa chỉ", ["dia chi", "thuong tru", "noi cu tru", "noi thuong tru", "cho o"]),
     ("ngay_den", "Ngày đến", ["ngay den", "ngay luu tru", "ngay nhan phong", "tu ngay", "check in", "ngay vao"]),
     ("ngay_di", "Ngày đi", ["ngay di", "ngay tra phong", "den ngay", "check out", "ngay ra"]),
@@ -62,7 +63,7 @@ def _create(path: str, sheet: str) -> None:
     wb = Workbook()
     ws = wb.active
     ws.title = sheet
-    widths = {"stt": 6, "ho_ten": 26, "ngay_sinh": 12, "gioi_tinh": 9, "so_cccd": 16, "dia_chi": 50,
+    widths = {"stt": 6, "ho_ten": 26, "ngay_sinh": 12, "gioi_tinh": 9, "so_cccd": 16, "loai_giay_to": 13, "dia_chi": 50,
               "ngay_den": 12, "ngay_di": 12, "phong": 9, "ghi_chu": 20, "thoi_gian_nhap": 18}
     for i, (key, title, _) in enumerate(COLUMNS, start=1):
         c = ws.cell(row=1, column=i, value=title)
@@ -124,18 +125,33 @@ def _to_date(v):
         return v
 
 
-def find_duplicate(path: str, sheet: str, so_cccd: str, ngay_den) -> int | None:
-    """Trả về số dòng nếu đã có khách cùng số CCCD và cùng ngày đến."""
-    if not so_cccd or not os.path.exists(path):
+def find_duplicate(path: str, sheet: str, rec: dict) -> int | None:
+    """Trả về số dòng nếu khách đã có với cùng ngày đến.
+
+    So sánh theo số CCCD nếu có; nếu không (trẻ em, bằng lái xe) thì theo họ tên + ngày sinh.
+    """
+    if not os.path.exists(path):
         return None
     wb, ws, header_row, cols = _open(path, sheet)
-    if "so_cccd" not in cols:
+    so_cccd = str(rec.get("so_cccd") or "").strip()
+    if so_cccd:
+        keys = {"so_cccd": so_cccd}
+    else:
+        keys = {"ho_ten": _norm(rec.get("ho_ten")), "ngay_sinh": str(rec.get("ngay_sinh") or "").strip()}
+    if not all(k in cols for k in keys) or not all(keys.values()):
         return None
-    nd = _to_date(ngay_den)
+    nd = _to_date(rec.get("ngay_den"))
     for r in range(header_row + 1, ws.max_row + 1):
-        if str(ws.cell(r, cols["so_cccd"]).value or "").strip() == so_cccd:
-            if "ngay_den" not in cols or _to_date(ws.cell(r, cols["ngay_den"]).value) == nd:
-                return r
+        ok = True
+        for k, v in keys.items():
+            cell = ws.cell(r, cols[k]).value
+            cell = _norm(cell) if k == "ho_ten" else (
+                cell.strftime("%d/%m/%Y") if isinstance(cell, (date, datetime)) else str(cell or "").strip())
+            if cell != v:
+                ok = False
+                break
+        if ok and ("ngay_den" not in cols or _to_date(ws.cell(r, cols["ngay_den"]).value) == nd):
+            return r
     return None
 
 
