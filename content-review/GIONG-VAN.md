@@ -7,6 +7,8 @@
 - Mới mẻ: tránh sáo ngữ bán hàng ("siêu hot", "sale sập sàn", "chất lừ", "đẹp xỉu"). Dùng hình ảnh, cảm giác, khoảnh khắc thay vì tính từ phô trương.
 - Không khoe khoang, không ép mua. Sản phẩm được "kể", không được "rao".
 
+- **Người dùng thích bản chân thật, gần gũi hơn**: kể như trải nghiệm thật ("thú thật là…", "nói thật để bạn dễ cân nhắc…"), câu đời thường, ít ẩn dụ. Vẫn giữ sự thanh lịch nhưng không bay bổng. Nói thẳng một điểm chưa hoàn hảo để tạo tin tưởng. Để `[...]` cho chiều cao/size người dùng mang. Xem mẫu: `bai-viet/01b-boot-hai-kieu-chan-that.md`.
+
 ## Cách dùng từ
 - Ưu tiên: *chỉn chu, mềm mại, ôm gọn, thả lỏng, dịu, trầm, nền nã, tiết chế, đường nét, phom dáng, vừa vặn, thong thả, lặng lẽ cuốn hút*.
 - Ẩn dụ nhẹ, đời thường: "một đôi boot, hai bản ngã", "mua để mang và mua để thương lâu".
