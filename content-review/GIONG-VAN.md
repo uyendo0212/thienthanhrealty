@@ -25,4 +25,8 @@
 ## Khi người dùng gửi thông tin sản phẩm
 - Viết bản đầy đủ (theo bố cục trên) + 1 bản caption ngắn (3–5 dòng) cho story/reels.
 - Thông tin nào thiếu thì để trong ngoặc vuông `[...]` cho người dùng điền, không bịa số liệu (giá, chất liệu, size).
+- Gọi đúng chất liệu theo thông tin sản phẩm (vd: "sợi tổng hợp" thì không gọi là "da lộn"/"da thật"; có thể tả "bề mặt nhung lì như da lộn").
+- Không nhắc số sao/đánh giá thấp hay số lượng đã bán. Giá khuyến mãi ghi "từ … (giá tham khảo)".
+- Người dùng làm affiliate: lời mời cuối bài hướng về "link ở giỏ hàng", không phải "inbox mình".
+- Nếu ảnh có người mẫu phối đồ, lấy chính outfit đó làm một gợi ý phối.
 - Lưu bài vào `content-review/bai-viet/` với tên file theo sản phẩm.
